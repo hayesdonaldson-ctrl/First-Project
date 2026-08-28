@@ -1,18 +1,24 @@
-// Load any tasks saved from before, or start with an empty list
-let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
-
+// Load any tasks saved from before, or start with an empty list.
+// localStorage is the offline cache and the store used when signed out;
+// sync.js takes over persistence once a user signs in.
 const TAGS = ["school", "health", "personal"];
 
-// Backfill fields that older saved tasks won't have yet.
+// Bring any shape of saved task up to the current model.
 // Earlier versions stored a single `dueDate` — treat that as the window end.
-tasks = tasks.map((task) => ({
-  text: task.text,
-  done: !!task.done,
-  startDate: task.startDate || "",
-  endDate: task.endDate || task.dueDate || "",
-  urgency: typeof task.urgency === "number" ? task.urgency : 50,
-  tag: TAGS.indexOf(task.tag) >= 0 ? task.tag : "",
-}));
+function normalize(list) {
+  return (list || [])
+    .filter((task) => task && typeof task.text === "string")
+    .map((task) => ({
+      text: task.text,
+      done: !!task.done,
+      startDate: task.startDate || "",
+      endDate: task.endDate || task.dueDate || "",
+      urgency: typeof task.urgency === "number" ? task.urgency : 50,
+      tag: TAGS.indexOf(task.tag) >= 0 ? task.tag : "",
+    }));
+}
+
+let tasks = normalize(JSON.parse(localStorage.getItem("tasks") || "[]"));
 
 const form = document.getElementById("task-form");
 const input = document.getElementById("task-input");
@@ -26,6 +32,10 @@ let dragFrom = null;
 
 function saveTasks() {
   localStorage.setItem("tasks", JSON.stringify(tasks));
+  // When signed in, sync.js registers this hook to push changes to the cloud.
+  if (typeof window !== "undefined" && typeof window.__onTasksChanged === "function") {
+    window.__onTasksChanged(tasks.map((t) => ({ ...t })));
+  }
 }
 
 // urgency 0 -> green (almost done), 50 -> amber, 100 -> red (urgent)
@@ -235,5 +245,18 @@ form.addEventListener("submit", (e) => {
   endInput.value = "";
   input.focus();
 });
+
+// Bridge for sync.js (loaded as a module after this script).
+if (typeof window !== "undefined") {
+  window.TodoApp = {
+    getTasks: () => tasks.map((t) => ({ ...t })),
+    // Apply a task list received from the cloud without echoing it back up.
+    applyRemoteTasks: (incoming) => {
+      tasks = normalize(incoming);
+      localStorage.setItem("tasks", JSON.stringify(tasks));
+      render();
+    },
+  };
+}
 
 render();

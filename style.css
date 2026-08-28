@@ -37,6 +37,43 @@ h1 {
   font-size: 14px;
 }
 
+#auth-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: #8d8d99;
+}
+
+#auth-bar button {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+#sign-out {
+  background: transparent;
+  color: #6d5bff;
+  padding: 4px 6px;
+}
+
+#sign-out:hover {
+  background: #efecff;
+}
+
+#auth-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #22223b;
+}
+
+#sync-status {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
 #task-form {
   display: flex;
   flex-wrap: wrap;

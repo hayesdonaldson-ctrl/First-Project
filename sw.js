@@ -1,10 +1,11 @@
 // Bump CACHE when any of the cached files change so clients pick up the new version.
-const CACHE = "todo-v3";
+const CACHE = "todo-v4";
 const ASSETS = [
   "./",
   "./index.html",
   "./style.css",
   "./script.js",
+  "./sync.js",
   "./manifest.webmanifest",
   "./icon-192.png",
   "./icon-512.png",

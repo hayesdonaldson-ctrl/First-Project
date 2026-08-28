@@ -24,6 +24,15 @@
     <h1>My To-Do List</h1>
     <p class="subtitle">Your first vibe-coded project 🎉</p>
 
+    <div id="auth-bar">
+      <button id="sign-in" type="button" hidden>Sign in with Google</button>
+      <span id="auth-info" hidden>
+        <span id="auth-email"></span>
+        <button id="sign-out" type="button">Sign out</button>
+      </span>
+      <span id="sync-status">Starting…</span>
+    </div>
+
     <form id="task-form">
       <input type="text" id="task-input" placeholder="What do you need to do?" autocomplete="off" required />
       <select id="task-tag" aria-label="Tag">
@@ -43,6 +52,7 @@
   </main>
 
   <script src="script.js"></script>
+  <script type="module" src="sync.js"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
