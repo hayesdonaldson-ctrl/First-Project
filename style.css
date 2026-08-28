@@ -231,6 +231,19 @@ button:hover {
   font-weight: 600;
 }
 
+.urgency-field {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.urgency-label {
+  font-size: 12px;
+  color: #8d8d99;
+  white-space: nowrap;
+}
+
 input.urgency {
   flex: 1;
   -webkit-appearance: none;

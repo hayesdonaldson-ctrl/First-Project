@@ -203,6 +203,13 @@ function render() {
       meta.appendChild(due);
     }
 
+    const urgencyWrap = document.createElement("label");
+    urgencyWrap.className = "urgency-field";
+
+    const urgencyLabel = document.createElement("span");
+    urgencyLabel.className = "urgency-label";
+    urgencyLabel.textContent = "Urgency";
+
     const slider = document.createElement("input");
     slider.type = "range";
     slider.min = "0";
@@ -215,7 +222,10 @@ function render() {
       li.style.borderLeft = `4px solid ${urgencyColor(tasks[index].urgency)}`;
     });
     slider.addEventListener("change", saveTasks);
-    meta.appendChild(slider);
+
+    urgencyWrap.appendChild(urgencyLabel);
+    urgencyWrap.appendChild(slider);
+    meta.appendChild(urgencyWrap);
 
     li.appendChild(top);
     li.appendChild(meta);
