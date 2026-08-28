@@ -29,10 +29,23 @@ const startInput = document.getElementById("task-start");
 const startTimeInput = document.getElementById("task-start-time");
 const endInput = document.getElementById("task-end");
 const endTimeInput = document.getElementById("task-end-time");
+const sortSelect = document.getElementById("sort-mode");
 const list = document.getElementById("task-list");
 const emptyState = document.getElementById("empty-state");
 
 let dragFrom = null;
+
+// View-only preference (per device) — the tasks array itself always stays
+// in the user's manual drag order.
+let sortMode = localStorage.getItem("sortMode") || "manual";
+if (sortSelect) {
+  sortSelect.value = sortMode;
+  sortSelect.addEventListener("change", () => {
+    sortMode = sortSelect.value;
+    localStorage.setItem("sortMode", sortMode);
+    render();
+  });
+}
 
 function saveTasks() {
   localStorage.setItem("tasks", JSON.stringify(tasks));
@@ -104,6 +117,37 @@ function daysBetween(a, b) {
   return Math.round((a - b) / 86400000);
 }
 
+// A sortable timestamp for a task's due date (end preferred, then start).
+// Tasks with no date sort to the end regardless of direction.
+function dueValue(task) {
+  const date = task.endDate || task.startDate;
+  if (!date) return Infinity;
+  const time = task.endDate ? task.endTime : task.startTime;
+  return atTime(date, time).getTime();
+}
+
+// Return tasks in display order for the current sort mode. The underlying
+// array is untouched, so switching back to "manual" restores the drag order.
+function sortedForView() {
+  if (sortMode === "manual") return tasks;
+  const copy = tasks.slice();
+  const cmp = {
+    "urgency-desc": (a, b) => b.urgency - a.urgency,
+    "urgency-asc": (a, b) => a.urgency - b.urgency,
+    "due-asc": (a, b) => dueValue(a) - dueValue(b),
+    "due-desc": (a, b) => {
+      const av = dueValue(a);
+      const bv = dueValue(b);
+      if (av === Infinity && bv === Infinity) return 0;
+      if (av === Infinity) return 1;
+      if (bv === Infinity) return -1;
+      return bv - av;
+    },
+    "az": (a, b) => a.text.toLowerCase().localeCompare(b.text.toLowerCase()),
+  }[sortMode];
+  return cmp ? copy.sort(cmp) : tasks;
+}
+
 // "90m" / "5h" / "3d" from a millisecond gap.
 function humanGap(ms) {
   const mins = Math.round(ms / 60000);
@@ -163,43 +207,49 @@ function render() {
   list.innerHTML = "";
   emptyState.style.display = tasks.length === 0 ? "block" : "none";
 
-  tasks.forEach((task, index) => {
+  const draggable = sortMode === "manual";
+
+  sortedForView().forEach((task) => {
+    const index = tasks.indexOf(task);
     const li = document.createElement("li");
     if (task.done) li.classList.add("done");
     li.style.borderLeft = `4px solid ${urgencyColor(task.urgency)}`;
 
-    // --- drag to reorder (only when grabbed by the handle) ---
+    // --- drag to reorder (manual sort only; grabbed by the handle) ---
     const handle = document.createElement("span");
-    handle.className = "handle";
+    handle.className = "handle" + (draggable ? "" : " handle-off");
     handle.textContent = "⠿";
-    handle.title = "Drag to reorder";
-    handle.addEventListener("mousedown", () => { li.draggable = true; });
+    handle.title = draggable ? "Drag to reorder" : "Switch Sort to “Manual” to reorder by hand";
 
-    li.addEventListener("dragstart", (e) => {
-      dragFrom = index;
-      li.classList.add("dragging");
-      if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
-    });
-    li.addEventListener("dragend", () => {
-      li.draggable = false;
-      li.classList.remove("dragging");
-      dragFrom = null;
-    });
-    li.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      li.classList.add("drag-over");
-    });
-    li.addEventListener("dragleave", () => li.classList.remove("drag-over"));
-    li.addEventListener("drop", (e) => {
-      e.preventDefault();
-      li.classList.remove("drag-over");
-      if (dragFrom === null || dragFrom === index) return;
-      const [moved] = tasks.splice(dragFrom, 1);
-      tasks.splice(index, 0, moved);
-      dragFrom = null;
-      saveTasks();
-      render();
-    });
+    if (draggable) {
+      handle.addEventListener("mousedown", () => { li.draggable = true; });
+
+      li.addEventListener("dragstart", (e) => {
+        dragFrom = index;
+        li.classList.add("dragging");
+        if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+      });
+      li.addEventListener("dragend", () => {
+        li.draggable = false;
+        li.classList.remove("dragging");
+        dragFrom = null;
+      });
+      li.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        li.classList.add("drag-over");
+      });
+      li.addEventListener("dragleave", () => li.classList.remove("drag-over"));
+      li.addEventListener("drop", (e) => {
+        e.preventDefault();
+        li.classList.remove("drag-over");
+        if (dragFrom === null || dragFrom === index) return;
+        const [moved] = tasks.splice(dragFrom, 1);
+        tasks.splice(index, 0, moved);
+        dragFrom = null;
+        saveTasks();
+        render();
+      });
+    }
 
     const top = document.createElement("div");
     top.className = "task-top";
@@ -273,7 +323,10 @@ function render() {
       tasks[index].urgency = Number(slider.value);
       li.style.borderLeft = `4px solid ${urgencyColor(tasks[index].urgency)}`;
     });
-    slider.addEventListener("change", saveTasks);
+    slider.addEventListener("change", () => {
+      saveTasks();
+      if (sortMode.indexOf("urgency") === 0) render();
+    });
 
     urgencyWrap.appendChild(urgencyLabel);
     urgencyWrap.appendChild(slider);

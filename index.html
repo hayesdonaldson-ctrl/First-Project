@@ -52,6 +52,19 @@
       <button type="submit">Add</button>
     </form>
 
+    <div id="list-tools">
+      <label>Sort
+        <select id="sort-mode">
+          <option value="manual">Manual (drag)</option>
+          <option value="urgency-desc">Urgency: high → low</option>
+          <option value="urgency-asc">Urgency: low → high</option>
+          <option value="due-asc">Due date: soonest first</option>
+          <option value="due-desc">Due date: latest first</option>
+          <option value="az">Name: A – Z</option>
+        </select>
+      </label>
+    </div>
+
     <ul id="task-list"></ul>
 
     <p id="empty-state">Nothing here yet — add your first task above.</p>

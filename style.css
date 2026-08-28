@@ -136,10 +136,38 @@ button:hover {
   background: #5a48e6;
 }
 
+#list-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #8d8d99;
+}
+
+#list-tools label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#sort-mode {
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #22223b;
+  background: #fff;
+}
+
 #task-list {
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+.handle-off {
+  opacity: 0.25;
+  cursor: default;
 }
 
 #task-list li {
