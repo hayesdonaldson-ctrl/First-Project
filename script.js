@@ -12,7 +12,9 @@ function normalize(list) {
       text: task.text,
       done: !!task.done,
       startDate: task.startDate || "",
+      startTime: typeof task.startTime === "string" ? task.startTime : "",
       endDate: task.endDate || task.dueDate || "",
+      endTime: typeof task.endTime === "string" ? task.endTime : "",
       urgency: typeof task.urgency === "number" ? task.urgency : 50,
       tag: TAGS.indexOf(task.tag) >= 0 ? task.tag : "",
     }));
@@ -24,7 +26,9 @@ const form = document.getElementById("task-form");
 const input = document.getElementById("task-input");
 const tagInput = document.getElementById("task-tag");
 const startInput = document.getElementById("task-start");
+const startTimeInput = document.getElementById("task-start-time");
 const endInput = document.getElementById("task-end");
+const endTimeInput = document.getElementById("task-end-time");
 const list = document.getElementById("task-list");
 const emptyState = document.getElementById("empty-state");
 
@@ -74,24 +78,72 @@ function fmtShort(iso) {
   return asDate(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+// "14:05" -> "2:05 PM"
+function fmtTime(time) {
+  const [h, m] = time.split(":").map(Number);
+  const suffix = h < 12 ? "AM" : "PM";
+  const hour = ((h + 11) % 12) + 1;
+  return `${hour}:${String(m).padStart(2, "0")} ${suffix}`;
+}
+
+function fmtWhen(iso, time) {
+  return fmtShort(iso) + (time ? ` ${fmtTime(time)}` : "");
+}
+
+// A Date at a given day + optional "HH:MM" (midnight when no time).
+function atTime(iso, time) {
+  const d = asDate(iso);
+  if (time) {
+    const [h, m] = time.split(":").map(Number);
+    d.setHours(h, m, 0, 0);
+  }
+  return d;
+}
+
 function daysBetween(a, b) {
   return Math.round((a - b) / 86400000);
 }
 
+// "90m" / "5h" / "3d" from a millisecond gap.
+function humanGap(ms) {
+  const mins = Math.round(ms / 60000);
+  if (mins < 60) return `${Math.max(mins, 1)}m`;
+  const hrs = Math.round(ms / 3600000);
+  if (hrs < 48) return `${hrs}h`;
+  return `${Math.round(ms / 86400000)}d`;
+}
+
 // Describe the due-date window and whether it's overdue.
-function windowLabel(start, end) {
+// Date-only endpoints keep whole-day wording; endpoints with a time
+// switch to a precise countdown.
+function windowLabel(start, end, startTime, endTime) {
   let range = "";
-  if (start && end) range = `${fmtShort(start)} – ${fmtShort(end)}`;
-  else if (end) range = `by ${fmtShort(end)}`;
-  else if (start) range = `from ${fmtShort(start)}`;
+  if (start && end) range = `${fmtWhen(start, startTime)} – ${fmtWhen(end, endTime)}`;
+  else if (end) range = `by ${fmtWhen(end, endTime)}`;
+  else if (start) range = `from ${fmtWhen(start, startTime)}`;
   else return { text: "", overdue: false };
 
+  const now = new Date();
   const today = startOfToday();
+  const startTimed = !!(start && startTime);
+  const endTimed = !!(end && endTime);
   let status = "";
   let overdue = false;
 
-  if (start && today < asDate(start)) {
-    status = ` · starts in ${daysBetween(asDate(start), today)}d`;
+  const beforeStart = start && (startTimed ? now < atTime(start, startTime) : today < asDate(start));
+
+  if (beforeStart) {
+    status = startTimed
+      ? ` · starts in ${humanGap(atTime(start, startTime) - now)}`
+      : ` · starts in ${daysBetween(asDate(start), today)}d`;
+  } else if (end && endTimed) {
+    const diff = atTime(end, endTime) - now;
+    if (diff < 0) {
+      status = ` · overdue by ${humanGap(-diff)}`;
+      overdue = true;
+    } else {
+      status = ` · ${humanGap(diff)} left`;
+    }
   } else if (end) {
     const left = daysBetween(asDate(end), today);
     if (left < 0) {
@@ -195,7 +247,7 @@ function render() {
     const meta = document.createElement("div");
     meta.className = "task-meta";
 
-    const win = windowLabel(task.startDate, task.endDate);
+    const win = windowLabel(task.startDate, task.endDate, task.startTime, task.endTime);
     if (win.text) {
       const due = document.createElement("span");
       due.className = "due" + (win.overdue ? " overdue" : "");
@@ -242,7 +294,9 @@ form.addEventListener("submit", (e) => {
     text,
     done: false,
     startDate: startInput.value,
+    startTime: startInput.value ? startTimeInput.value : "",
     endDate: endInput.value,
+    endTime: endInput.value ? endTimeInput.value : "",
     urgency: 50,
     tag: tagInput.value,
   });
@@ -252,7 +306,9 @@ form.addEventListener("submit", (e) => {
   input.value = "";
   tagInput.value = "";
   startInput.value = "";
+  startTimeInput.value = "";
   endInput.value = "";
+  endTimeInput.value = "";
   input.focus();
 });
 

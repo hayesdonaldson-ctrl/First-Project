@@ -93,6 +93,7 @@ h1 {
 .date-field {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   font-size: 12px;
   color: #8d8d99;

@@ -41,8 +41,14 @@
         <option value="health">Health</option>
         <option value="personal">Personal</option>
       </select>
-      <label class="date-field">From <input type="date" id="task-start" aria-label="Start date" /></label>
-      <label class="date-field">To <input type="date" id="task-end" aria-label="End date" /></label>
+      <label class="date-field">From
+        <input type="date" id="task-start" aria-label="Start date" />
+        <input type="time" id="task-start-time" aria-label="Start time" />
+      </label>
+      <label class="date-field">To
+        <input type="date" id="task-end" aria-label="End date" />
+        <input type="time" id="task-end-time" aria-label="End time" />
+      </label>
       <button type="submit">Add</button>
     </form>
 
