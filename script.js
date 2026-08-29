@@ -30,6 +30,7 @@ const startTimeInput = document.getElementById("task-start-time");
 const endInput = document.getElementById("task-end");
 const endTimeInput = document.getElementById("task-end-time");
 const sortSelect = document.getElementById("sort-mode");
+const calToggle = document.getElementById("cal-toggle");
 const list = document.getElementById("task-list");
 const emptyState = document.getElementById("empty-state");
 
@@ -43,6 +44,17 @@ if (sortSelect) {
   sortSelect.addEventListener("change", () => {
     sortMode = sortSelect.value;
     localStorage.setItem("sortMode", sortMode);
+    render();
+  });
+}
+
+// Show a per-task "Add to calendar" button (on by default).
+let calEnabled = localStorage.getItem("calendarButtons") !== "off";
+if (calToggle) {
+  calToggle.checked = calEnabled;
+  calToggle.addEventListener("change", () => {
+    calEnabled = calToggle.checked;
+    localStorage.setItem("calendarButtons", calEnabled ? "on" : "off");
     render();
   });
 }
@@ -203,6 +215,95 @@ function windowLabel(start, end, startTime, endTime) {
   return { text: range + status, overdue };
 }
 
+/* --------------------------------------------------------------------------
+   Calendar export (.ics)
+   -------------------------------------------------------------------------- */
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+
+// Local Date -> "YYYYMMDDTHHMMSSZ" (UTC)
+function icsStampUTC(date) {
+  return (
+    date.getUTCFullYear() +
+    pad2(date.getUTCMonth() + 1) +
+    pad2(date.getUTCDate()) +
+    "T" +
+    pad2(date.getUTCHours()) +
+    pad2(date.getUTCMinutes()) +
+    pad2(date.getUTCSeconds()) +
+    "Z"
+  );
+}
+
+function icsEscape(text) {
+  return String(text).replace(/[\\;,]/g, "\\$&").replace(/\r?\n/g, "\\n");
+}
+
+// Build a VCALENDAR string for one task, with a reminder before it's due.
+// Returns null when the task has no dates.
+function taskToICS(task) {
+  if (!task.startDate && !task.endDate) return null;
+
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//My To-Do List//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    "UID:todo-" + Date.now() + "-" + Math.random().toString(36).slice(2, 9) + "@todo.local",
+    "DTSTAMP:" + icsStampUTC(new Date()),
+    "SUMMARY:" + icsEscape(task.text),
+  ];
+
+  const timed = !!(task.endDate && task.endTime);
+
+  if (task.endDate && task.endTime) {
+    const end = atTime(task.endDate, task.endTime);
+    const start = task.startDate
+      ? atTime(task.startDate, task.startTime || "09:00")
+      : new Date(end.getTime() - 30 * 60000);
+    lines.push("DTSTART:" + icsStampUTC(start));
+    lines.push("DTEND:" + icsStampUTC(end));
+  } else {
+    const day = task.endDate || task.startDate;
+    const next = asDate(day);
+    next.setDate(next.getDate() + 1);
+    lines.push("DTSTART;VALUE=DATE:" + day.replace(/-/g, ""));
+    lines.push("DTEND;VALUE=DATE:" + next.toISOString().slice(0, 10).replace(/-/g, ""));
+  }
+
+  if (task.tag) lines.push("CATEGORIES:" + icsEscape(task.tag));
+
+  // Reminder: 1 hour before a timed due, 1 day before an all-day due.
+  lines.push(
+    "BEGIN:VALARM",
+    "ACTION:DISPLAY",
+    "DESCRIPTION:" + icsEscape(task.text),
+    "TRIGGER:" + (timed ? "-PT1H" : "-P1D"),
+    "END:VALARM",
+    "END:VEVENT",
+    "END:VCALENDAR"
+  );
+
+  return lines.join("\r\n");
+}
+
+function downloadICS(task) {
+  const ics = taskToICS(task);
+  if (!ics) return;
+  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = (task.text.replace(/[^\w \-]+/g, "").trim().slice(0, 40) || "task") + ".ics";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function render() {
   list.innerHTML = "";
   emptyState.style.display = tasks.length === 0 ? "block" : "none";
@@ -305,6 +406,16 @@ function render() {
       meta.appendChild(due);
     }
 
+    if (calEnabled && (task.startDate || task.endDate)) {
+      const calBtn = document.createElement("button");
+      calBtn.type = "button";
+      calBtn.className = "cal-btn";
+      calBtn.textContent = "📅 Add to calendar";
+      calBtn.title = "Download a calendar event with a reminder before this is due";
+      calBtn.addEventListener("click", () => downloadICS(task));
+      meta.appendChild(calBtn);
+    }
+
     const urgencyWrap = document.createElement("label");
     urgencyWrap.className = "urgency-field";
 
@@ -375,6 +486,7 @@ if (typeof window !== "undefined") {
       localStorage.setItem("tasks", JSON.stringify(tasks));
       render();
     },
+    taskToICS,
   };
 }
 
