@@ -366,6 +366,14 @@ h1 {
   cursor: default;
 }
 
+.task-check {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .task-top .task-text {
   flex: 1;
   cursor: pointer;
@@ -410,6 +418,200 @@ h1 {
   align-items: center;
   gap: 14px;
   flex-wrap: wrap;
+}
+
+/* ---------------------------------------------------------------------------
+   Sub-list (steps within a to-do)
+   --------------------------------------------------------------------------- */
+.subtasks-wrap {
+  margin-left: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.subtasks-head {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+ul.subtasks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+ul.subtasks li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.subtask-check {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.subtask-text {
+  flex: 1;
+  cursor: pointer;
+}
+
+ul.subtasks li.done .subtask-text {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.subtask-remove {
+  flex: 0 0 auto;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 6px;
+  opacity: 0.6;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.subtask-remove:hover {
+  opacity: 1;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+
+.subtask-form {
+  display: flex;
+  gap: 6px;
+}
+
+.subtask-input {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid var(--field-border);
+  border-radius: 9px;
+  font-size: 13px;
+  color: var(--field-text);
+  background: var(--field-bg);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.subtask-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.subtask-add {
+  flex: 0 0 auto;
+  background: var(--surface-2);
+  color: var(--muted);
+  border: 1px solid var(--field-border);
+  border-radius: 9px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.subtask-add:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/* ---------------------------------------------------------------------------
+   Completion animations
+   --------------------------------------------------------------------------- */
+:root { --done-green: #22c55e; --done-green-fg: #15803d; }
+:root[data-theme="dark"],
+:root[data-theme="glass"] { --done-green-fg: #4ade80; }
+
+/* A step: green flash + pop, then it slides away and collapses. */
+@keyframes step-complete {
+  0%   { opacity: 1; max-height: 44px; transform: translateX(0) scale(1); }
+  18%  { transform: translateX(0) scale(1.04); }
+  45%  { opacity: 1; max-height: 44px; }
+  100% { opacity: 0; max-height: 0; transform: translateX(26px) scale(0.98); }
+}
+
+ul.subtasks li.completing {
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--done-green) 20%, transparent);
+  animation: step-complete 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+ul.subtasks li.completing .subtask-check { accent-color: var(--done-green); }
+
+ul.subtasks li.completing .subtask-text {
+  color: var(--done-green-fg);
+  text-decoration: line-through;
+}
+
+/* A whole to-do: green wash, a checkmark burst, then the row collapses out. */
+@keyframes task-complete {
+  0%   { opacity: 1; max-height: 600px; transform: translateX(0) scale(1); }
+  12%  { transform: translateX(0) scale(1.03); }
+  26%  { transform: translateX(0) scale(1); }
+  60%  { opacity: 1; max-height: 600px; }
+  100% {
+    opacity: 0;
+    max-height: 0;
+    transform: translateX(44px) scale(0.95);
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    border-width: 0;
+  }
+}
+
+@keyframes burst-in {
+  0%   { transform: scale(0.2) rotate(-12deg); opacity: 0; }
+  40%  { transform: scale(1.25) rotate(0deg); opacity: 1; }
+  62%  { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.05); opacity: 0; }
+}
+
+#task-list li.completing {
+  overflow: hidden;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--done-green) 15%, transparent);
+  animation: task-complete 0.62s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+#task-list li.completing .task-text {
+  color: var(--done-green-fg);
+  text-decoration: line-through;
+}
+
+#task-list li.completing .task-check { accent-color: var(--done-green); }
+
+.complete-burst {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 44px;
+  font-weight: 700;
+  color: var(--done-green);
+  text-shadow: 0 2px 12px color-mix(in srgb, var(--done-green) 55%, transparent);
+  pointer-events: none;
+  animation: burst-in 0.62s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .due {

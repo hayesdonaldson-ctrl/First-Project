@@ -1,5 +1,5 @@
 // Bump CACHE when any of the cached files change so clients pick up the new version.
-const CACHE = "todo-v9";
+const CACHE = "todo-v11";
 const ASSETS = [
   "./",
   "./index.html",

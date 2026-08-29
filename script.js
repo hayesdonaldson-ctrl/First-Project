@@ -17,6 +17,11 @@ function normalize(list) {
       endTime: typeof task.endTime === "string" ? task.endTime : "",
       urgency: typeof task.urgency === "number" ? task.urgency : 50,
       tag: TAGS.indexOf(task.tag) >= 0 ? task.tag : "",
+      subtasks: Array.isArray(task.subtasks)
+        ? task.subtasks
+            .filter((s) => s && typeof s.text === "string")
+            .map((s) => ({ text: s.text, done: !!s.done }))
+        : [],
     }));
 }
 
@@ -35,6 +40,10 @@ const list = document.getElementById("task-list");
 const emptyState = document.getElementById("empty-state");
 
 let dragFrom = null;
+
+// After a full re-render, put the cursor back in the "add a step" box of the
+// task the user was just typing into, so a sub-list can be filled in quickly.
+let focusSubtaskIndex = null;
 
 // View-only preference (per device) — the tasks array itself always stays
 // in the user's manual drag order.
@@ -304,6 +313,55 @@ function downloadICS(task) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// Play the green "done" animation on a task row, then drop the task entirely.
+// Called when its checkbox is ticked (or its text is clicked while not done).
+function completeTask(li, task) {
+  if (li.classList.contains("completing")) return;
+  task.done = true;
+  li.classList.add("completing");
+
+  const burst = document.createElement("div");
+  burst.className = "complete-burst";
+  burst.textContent = "✓";
+  li.appendChild(burst);
+
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    const i = tasks.indexOf(task);
+    if (i >= 0) tasks.splice(i, 1);
+    saveTasks();
+    render();
+  };
+  li.addEventListener("animationend", (e) => {
+    if (e.target === li) finish();
+  });
+  setTimeout(finish, 900); // fallback if animationend never fires
+}
+
+// Same idea for a single step: flash green, slide away, then remove it.
+function completeStep(subLi, task, sub) {
+  if (subLi.classList.contains("completing")) return;
+  sub.done = true;
+  subLi.classList.add("completing");
+
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    const arr = Array.isArray(task.subtasks) ? task.subtasks : [];
+    const i = arr.indexOf(sub);
+    if (i >= 0) arr.splice(i, 1);
+    saveTasks();
+    render();
+  };
+  subLi.addEventListener("animationend", (e) => {
+    if (e.target === subLi) finish();
+  });
+  setTimeout(finish, 800);
+}
+
 function render() {
   list.innerHTML = "";
   emptyState.style.display = tasks.length === 0 ? "block" : "none";
@@ -355,13 +413,32 @@ function render() {
     const top = document.createElement("div");
     top.className = "task-top";
 
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "task-check";
+    checkbox.checked = task.done;
+    checkbox.setAttribute("aria-label", task.done ? "Mark as not done" : "Mark as done");
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        completeTask(li, task);
+      } else {
+        tasks[index].done = false;
+        saveTasks();
+        render();
+      }
+    });
+
     const span = document.createElement("span");
     span.className = "task-text";
     span.textContent = task.text;
     span.addEventListener("click", () => {
-      tasks[index].done = !tasks[index].done;
-      saveTasks();
-      render();
+      if (task.done) {
+        tasks[index].done = false;
+        saveTasks();
+        render();
+      } else {
+        completeTask(li, task);
+      }
     });
 
     // --- tag picker ---
@@ -391,6 +468,7 @@ function render() {
     });
 
     top.appendChild(handle);
+    top.appendChild(checkbox);
     top.appendChild(span);
     top.appendChild(tagSelect);
     top.appendChild(removeBtn);
@@ -443,10 +521,101 @@ function render() {
     urgencyWrap.appendChild(slider);
     meta.appendChild(urgencyWrap);
 
+    // --- sub-list: the steps that make up this to-do ---
+    const subWrap = document.createElement("div");
+    subWrap.className = "subtasks-wrap";
+
+    // Completed steps animate out and are dropped, so only pending ones show.
+    const allSubs = Array.isArray(task.subtasks) ? task.subtasks : [];
+    const subs = allSubs.filter((s) => !s.done);
+
+    if (subs.length) {
+      const subHead = document.createElement("div");
+      subHead.className = "subtasks-head";
+      subHead.textContent = `Steps · ${subs.length} to go`;
+      subWrap.appendChild(subHead);
+
+      const subList = document.createElement("ul");
+      subList.className = "subtasks";
+
+      subs.forEach((sub) => {
+        const subLi = document.createElement("li");
+
+        const subCheck = document.createElement("input");
+        subCheck.type = "checkbox";
+        subCheck.className = "subtask-check";
+        subCheck.checked = false;
+        subCheck.setAttribute("aria-label", sub.text);
+        subCheck.addEventListener("change", () => {
+          if (subCheck.checked) completeStep(subLi, task, sub);
+        });
+
+        const subText = document.createElement("span");
+        subText.className = "subtask-text";
+        subText.textContent = sub.text;
+        subText.addEventListener("click", () => completeStep(subLi, task, sub));
+
+        const subRemove = document.createElement("button");
+        subRemove.type = "button";
+        subRemove.className = "subtask-remove";
+        subRemove.textContent = "✕";
+        subRemove.title = "Remove this step";
+        subRemove.addEventListener("click", () => {
+          const i = allSubs.indexOf(sub);
+          if (i >= 0) allSubs.splice(i, 1);
+          saveTasks();
+          render();
+        });
+
+        subLi.appendChild(subCheck);
+        subLi.appendChild(subText);
+        subLi.appendChild(subRemove);
+        subList.appendChild(subLi);
+      });
+
+      subWrap.appendChild(subList);
+    }
+
+    const subForm = document.createElement("form");
+    subForm.className = "subtask-form";
+
+    const subInput = document.createElement("input");
+    subInput.type = "text";
+    subInput.className = "subtask-input";
+    subInput.placeholder = "Add a step…";
+    subInput.autocomplete = "off";
+
+    const subAdd = document.createElement("button");
+    subAdd.type = "submit";
+    subAdd.className = "subtask-add";
+    subAdd.textContent = "Add step";
+
+    subForm.appendChild(subInput);
+    subForm.appendChild(subAdd);
+    subForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const text = subInput.value.trim();
+      if (!text) return;
+      if (!Array.isArray(tasks[index].subtasks)) tasks[index].subtasks = [];
+      tasks[index].subtasks.push({ text, done: false });
+      focusSubtaskIndex = index;
+      saveTasks();
+      render();
+    });
+
+    if (focusSubtaskIndex === index) {
+      setTimeout(() => subInput.focus(), 0);
+    }
+
+    subWrap.appendChild(subForm);
+
     li.appendChild(top);
     li.appendChild(meta);
+    li.appendChild(subWrap);
     list.appendChild(li);
   });
+
+  focusSubtaskIndex = null;
 }
 
 form.addEventListener("submit", (e) => {
@@ -463,6 +632,7 @@ form.addEventListener("submit", (e) => {
     endTime: endInput.value ? endTimeInput.value : "",
     urgency: 50,
     tag: tagInput.value,
+    subtasks: [],
   });
   saveTasks();
   render();
