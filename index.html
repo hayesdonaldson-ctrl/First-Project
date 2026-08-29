@@ -5,12 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>My To-Do List</title>
 
+  <!-- Set the saved theme before first paint to avoid a flash -->
+  <script>
+    try {
+      document.documentElement.setAttribute("data-theme", localStorage.getItem("theme") || "light");
+    } catch (e) {
+      document.documentElement.setAttribute("data-theme", "light");
+    }
+  </script>
+
   <link rel="stylesheet" href="style.css" />
 
   <!-- PWA / installable -->
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#6d5bff" />
-  <meta name="description" content="A simple to-do list with due-date windows, urgency, tags, and drag-to-reorder." />
+  <meta name="description" content="A simple to-do list with due-date windows, urgency, tags, themes, and drag-to-reorder." />
 
   <!-- iOS "Add to Home Screen" -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -20,18 +29,54 @@
   <link rel="icon" href="icon-192.png" />
 </head>
 <body>
-  <main class="card">
-    <h1>My To-Do List</h1>
-    <p class="subtitle">Your first vibe-coded project 🎉</p>
+  <button id="menu-toggle" class="menu-toggle" aria-label="Open settings" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
 
-    <div id="auth-bar">
-      <button id="sign-in" type="button" hidden>Sign in with Google</button>
-      <span id="auth-info" hidden>
-        <span id="auth-email"></span>
-        <button id="sign-out" type="button">Sign out</button>
-      </span>
-      <span id="sync-status">Starting…</span>
+  <div id="settings-backdrop"></div>
+
+  <aside id="settings-panel" aria-label="Settings" aria-hidden="true">
+    <div class="panel-head">
+      <h2>Settings</h2>
+      <button id="settings-close" class="icon-btn" aria-label="Close settings">✕</button>
     </div>
+
+    <div class="setting-row">
+      <span class="setting-label">Theme</span>
+      <div class="seg" id="theme-seg" role="group" aria-label="Theme">
+        <button type="button" data-theme-value="light" aria-pressed="true">Light</button>
+        <button type="button" data-theme-value="dark" aria-pressed="false">Dark</button>
+        <button type="button" data-theme-value="glass" aria-pressed="false">Liquid&nbsp;Glass</button>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <label class="setting-label" for="sort-mode">Sort tasks</label>
+      <select id="sort-mode">
+        <option value="manual">Manual (drag)</option>
+        <option value="urgency-desc">Urgency: high → low</option>
+        <option value="urgency-asc">Urgency: low → high</option>
+        <option value="due-asc">Due date: soonest first</option>
+        <option value="due-desc">Due date: latest first</option>
+        <option value="az">Name: A – Z</option>
+      </select>
+    </div>
+
+    <p class="panel-foot">Your first vibe-coded project 🎉</p>
+  </aside>
+
+  <main class="card">
+    <header class="card-head">
+      <h1>My To-Do List</h1>
+      <div id="auth-bar">
+        <button id="sign-in" type="button" hidden>Sign in with Google</button>
+        <span id="auth-info" hidden>
+          <span id="auth-email"></span>
+          <button id="sign-out" type="button">Sign out</button>
+        </span>
+        <span id="sync-status">Starting…</span>
+      </div>
+    </header>
 
     <form id="task-form">
       <input type="text" id="task-input" placeholder="What do you need to do?" autocomplete="off" required />
@@ -49,21 +94,8 @@
         <input type="date" id="task-end" aria-label="End date" />
         <input type="time" id="task-end-time" aria-label="End time" />
       </label>
-      <button type="submit">Add</button>
+      <button type="submit" class="add-btn">Add</button>
     </form>
-
-    <div id="list-tools">
-      <label>Sort
-        <select id="sort-mode">
-          <option value="manual">Manual (drag)</option>
-          <option value="urgency-desc">Urgency: high → low</option>
-          <option value="urgency-asc">Urgency: low → high</option>
-          <option value="due-asc">Due date: soonest first</option>
-          <option value="due-desc">Due date: latest first</option>
-          <option value="az">Name: A – Z</option>
-        </select>
-      </label>
-    </div>
 
     <ul id="task-list"></ul>
 
@@ -71,6 +103,7 @@
   </main>
 
   <script src="script.js"></script>
+  <script src="ui.js"></script>
   <script type="module" src="sync.js"></script>
   <script>
     if ("serviceWorker" in navigator) {
